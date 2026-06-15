@@ -8,6 +8,7 @@
     <div v-if="loading" class="loading">{{ t('common.loading') }}</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else>
+
       <div class="stats-grid">
         <div class="stat-card success">
           <div class="stat-label">{{ t('status.delivered') }}</div>
@@ -74,6 +75,51 @@
           </table>
         </div>
       </div>
+
+      <!-- Restocking Orders section -->
+      <div class="card restocking-card">
+        <div class="card-header restocking-header" @click="restockingExpanded = !restockingExpanded">
+          <h3 class="card-title">{{ t('restocking.restockingOrders') }} ({{ restockingOrders.length }})</h3>
+          <span class="toggle-icon">{{ restockingExpanded ? '▼' : '▶' }}</span>
+        </div>
+        <div v-if="restockingExpanded">
+          <div v-if="restockingOrders.length === 0" class="no-restocking">
+            {{ t('restocking.noRestockingOrders') }}
+          </div>
+          <div v-else class="table-container">
+            <table class="orders-table">
+              <thead>
+                <tr>
+                  <th class="col-order-number">{{ t('orders.table.orderNumber') }}</th>
+                  <th class="col-items">{{ t('orders.table.items') }}</th>
+                  <th class="col-status">{{ t('orders.table.status') }}</th>
+                  <th class="col-date">{{ t('restocking.submitted') }}</th>
+                  <th class="col-date">{{ t('orders.table.expectedDelivery') }}</th>
+                  <th class="col-lead">{{ t('restocking.leadTime') }}</th>
+                  <th class="col-value">{{ t('orders.table.totalValue') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="order in restockingOrders" :key="order.id">
+                  <td class="col-order-number"><strong>{{ order.order_number }}</strong></td>
+                  <td class="col-items">{{ t('orders.itemsCount', { count: order.items.length }) }}</td>
+                  <td class="col-status">
+                    <span :class="['badge', getOrderStatusClass(order.status)]">
+                      {{ t(`status.${order.status.toLowerCase()}`) }}
+                    </span>
+                  </td>
+                  <td class="col-date">{{ formatDate(order.order_date) }}</td>
+                  <td class="col-date">{{ formatDate(order.expected_delivery) }}</td>
+                  <td class="col-lead">
+                    <span class="badge info">{{ t('restocking.days14') }}</span>
+                  </td>
+                  <td class="col-value"><strong>{{ currencySymbol }}{{ order.total_value.toLocaleString() }}</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -95,6 +141,8 @@ export default {
     const loading = ref(true)
     const error = ref(null)
     const orders = ref([])
+    const restockingOrders = ref([])
+    const restockingExpanded = ref(true)
 
     // Use shared filters
     const {
@@ -153,13 +201,26 @@ export default {
       })
     }
 
-    onMounted(loadOrders)
+    const loadRestockingOrders = async () => {
+      try {
+        restockingOrders.value = await api.getRestockingOrders()
+      } catch (err) {
+        console.error('Failed to load restocking orders:', err)
+      }
+    }
+
+    onMounted(() => {
+      loadOrders()
+      loadRestockingOrders()
+    })
 
     return {
       t,
       loading,
       error,
       orders,
+      restockingOrders,
+      restockingExpanded,
       getOrdersByStatus,
       getOrderStatusClass,
       formatDate,
@@ -275,5 +336,34 @@ export default {
 .item-meta {
   font-size: 0.813rem;
   color: #64748b;
+}
+
+/* Restocking Orders section */
+.restocking-card .restocking-header {
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.restocking-header:hover {
+  background: #f8fafc;
+  border-radius: 10px 10px 0 0;
+}
+
+.toggle-icon {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.col-lead {
+  width: 100px;
+}
+
+.no-restocking {
+  padding: 1.5rem 0.75rem;
+  color: #64748b;
+  font-size: 0.875rem;
 }
 </style>
